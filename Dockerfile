@@ -5,7 +5,7 @@ WORKDIR /tmp
 
 RUN pip install poetry
 
-RUN pip install git+https://github.com/python-poetry/poetry-plugin.git@v2.0.0
+RUN pip install poetry-plugin-export
 
 COPY ./pyproject.toml ./poetry.lock* /tmp/
 
