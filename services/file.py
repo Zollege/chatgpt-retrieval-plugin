@@ -8,6 +8,9 @@ import docx2txt
 import csv
 import pptx
 from loguru import logger
+import pytesseract
+from PIL import Image
+from pdf2image import convert_from_path
 
 from models.models import Document, DocumentMetadata
 
@@ -115,3 +118,42 @@ async def extract_text_from_form_file(file: UploadFile):
     os.remove(temp_file_path)
 
     return extracted_text
+
+
+def extract_text_from_filepath(filepath: str) -> str:
+    if filepath.lower().endswith(".pdf"):
+        text = ""
+        try:
+            # Attempt to extract text using PyPDF2
+            with open(filepath, "rb") as file:
+                reader = PdfReader(file)
+                for page in reader.pages:
+                    page_text = page.extract_text()
+                    if page_text:
+                        text += page_text
+        except Exception as e:
+            logger.warning(f"PyPDF2 failed for {filepath} with error: {e}")
+
+        # If no text was extracted, try OCR
+        if not text.strip():
+            try:
+                logger.info(f"Falling back to OCR for {filepath}")
+                images = convert_from_path(filepath)
+                for image in images:
+                    ocr_text = pytesseract.image_to_string(image)
+                    text += ocr_text + "\n"
+            except Exception as ocr_e:
+                logger.error(f"Tesseract OCR failed for {filepath} with error: {ocr_e}")
+        return text
+    else:
+        # For non-PDF files, try reading as text or OCR if it is an image
+        try:
+            with open(filepath, "r", encoding="utf8") as file:
+                return file.read()
+        except Exception:
+            try:
+                image = Image.open(filepath)
+                return pytesseract.image_to_string(image)
+            except Exception as img_e:
+                logger.error(f"Failed to extract text from {filepath}: {img_e}")
+                return ""
